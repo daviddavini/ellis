@@ -30,8 +30,10 @@ struct Args {
     directory: bool,
     #[clap(short, long, value_parser)]
     group_directories_first: bool,
-    #[clap(short, value_parser)]
+    #[clap(short, long, value_parser)]
     reverse: bool,
+    #[clap(short, long, value_parser)]
+    size: bool,
     #[clap(short = 'U', value_parser)]
     uu: bool,
 }
@@ -103,6 +105,13 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
 
         if args.inode {
             line.push(meta.ino().to_string());
+        }
+
+        if args.size {
+            // note: not necessarily 0...
+            let blocks = if meta.is_symlink() { 0 } else { meta.blocks() };
+            let blocks_adj = blocks / (meta.blksize() / 512);
+            line.push(blocks_adj.to_string());
         }
 
         if args.l {
@@ -219,6 +228,8 @@ fn show_directory(args: &Args, dir: &Path) -> Result<(), Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let (height, width) = termion::terminal_size().unwrap();
+
     // OUTLINE
     // Process command line arguments
     let args = Args::parse();
