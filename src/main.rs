@@ -26,6 +26,8 @@ struct Args {
     #[clap(short = 'B', long, value_parser)]
     ignore_backups: bool,
     #[clap(short, value_parser)]
+    c: bool,
+    #[clap(short, value_parser)]
     l: bool,
     #[clap(short, value_parser)]
     g: bool,
@@ -37,6 +39,8 @@ struct Args {
     inode: bool,
     #[clap(short, long, value_parser)]
     directory: bool,
+    #[clap(short, value_parser)]
+    t: bool,
     #[clap(short, long, value_parser)]
     group_directories_first: bool,
     #[clap(short, long, value_parser)]
@@ -64,7 +68,19 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
     let mut files = files_old.clone();
     // Sort the file data
     if !args.uu {
-        files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+        if args.c && (!args.l || args.t) {
+            files.sort_by(|a, b| {
+                a.symlink_metadata()
+                    .unwrap()
+                    .created()
+                    .unwrap()
+                    .cmp(&b.symlink_metadata().unwrap().created().unwrap())
+                    .reverse()
+            });
+        } else {
+            files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+        }
+
         if args.reverse {
             files.reverse();
         }
@@ -84,7 +100,7 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
     for (i, file) in files.iter().enumerate() {
         // let filename = file.as_os_str().to_str().unwrap().to_string();
         let filename = file.file_name().or(Some(file.as_os_str())).unwrap();
-        let meta = file.metadata()?;
+        let meta = file.symlink_metadata()?;
         let created: DateTime<Local> = meta.created()?.into();
         let modified: DateTime<Local> = meta.modified()?.into();
         // println!("{:?} {:?}", meta.blksize(), meta.blocks());
@@ -100,7 +116,7 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
 
         if args.size {
             // note: not necessarily 0...
-            let blocks = if meta.is_symlink() { 0 } else { meta.blocks() };
+            let blocks = meta.blocks();
             let blocks_adj = blocks / (meta.blksize() / 512);
             line.push(blocks_adj.to_string());
             if i == 0 {
@@ -168,7 +184,8 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
             if i == 0 {
                 align.push(Align::Left);
             }
-            line.push(modified.format("%R").to_string());
+            let time = if args.c { created } else { modified };
+            line.push(time.format("%R").to_string());
             if i == 0 {
                 align.push(Align::Left);
             }
