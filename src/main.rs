@@ -30,6 +30,8 @@ struct Args {
     directory: bool,
     #[clap(short, long, value_parser)]
     group_directories_first: bool,
+    #[clap(short = 'U', value_parser)]
+    uu: bool,
 }
 
 // struct Line {
@@ -65,17 +67,19 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
         return Ok(());
     }
 
-    // Sort the file data
     let mut files = files_old.clone();
-    if args.group_directories_first {
-        files.sort_by(|a, b| {
-            (a.is_dir()
-                .cmp(&b.is_dir())
-                .reverse()
-                .then(a.file_name().cmp(&b.file_name())))
-        });
-    } else {
-        files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    // Sort the file data
+    if !args.uu {
+        if args.group_directories_first {
+            files.sort_by(|a, b| {
+                (a.is_dir()
+                    .cmp(&b.is_dir())
+                    .reverse()
+                    .then(a.file_name().cmp(&b.file_name())))
+            });
+        } else {
+            files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+        }
     }
 
     let mut grid = Vec::new();
