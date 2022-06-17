@@ -90,7 +90,8 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
 
     // Print the file data
     for file in &files {
-        let filename = file.file_name().unwrap();
+        // let filename = file.as_os_str().to_str().unwrap().to_string();
+        let filename = file.file_name().or(Some(file.as_os_str())).unwrap();
         let meta = file.metadata()?;
         let created: DateTime<Local> = meta.created()?.into();
         let modified: DateTime<Local> = meta.modified()?.into();
@@ -195,15 +196,16 @@ fn show_directory(args: &Args, dir: &Path) -> Result<(), Box<dyn Error>> {
             .chars()
             .next()
             .unwrap();
-        if first_char == '.' {
-            if args.all {
-                files_new.push(file.as_path());
-            } else {
-                continue;
-            }
+        if !args.all && first_char == '.' {
+            continue;
         } else {
             files_new.push(file.as_path());
         }
+    }
+
+    if args.all {
+        files_new.push(&Path::new("."));
+        files_new.push(&Path::new(".."));
     }
 
     let total_blocks = 0;
