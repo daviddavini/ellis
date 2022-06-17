@@ -49,6 +49,8 @@ struct Args {
     size: bool,
     #[clap(short = 'U', value_parser)]
     uu: bool,
+    #[clap(short = '1', value_parser)]
+    one: bool,
     #[clap(skip)]
     long_listing: bool,
 }
@@ -233,7 +235,7 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
 
     // println!("{:?}", align.len());
 
-    if args.long_listing {
+    if args.long_listing || args.one {
         for line in grid {
             for (part, spacing, align) in izip!(&line, &spacings, &align) {
                 match align {
