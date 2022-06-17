@@ -19,6 +19,8 @@ struct Args {
     files: Vec<PathBuf>,
     #[clap(short, long, value_parser)]
     all: bool,
+    #[clap(short = 'A', long, value_parser)]
+    almost_all: bool,
     #[clap(short, value_parser)]
     l: bool,
     #[clap(short, value_parser)]
@@ -236,7 +238,7 @@ fn show_directory(args: &Args, dir: &Path) -> Result<(), Box<dyn Error>> {
             .chars()
             .next()
             .unwrap();
-        if !args.all && first_char == '.' {
+        if !(args.all || args.almost_all) && first_char == '.' {
             continue;
         } else {
             files_new.push(file.as_path());
