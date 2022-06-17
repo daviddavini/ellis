@@ -23,6 +23,8 @@ struct Args {
     almost_all: bool,
     #[clap(long, value_parser)]
     author: bool,
+    #[clap(short = 'B', long, value_parser)]
+    ignore_backups: bool,
     #[clap(short, value_parser)]
     l: bool,
     #[clap(short, value_parser)]
@@ -248,19 +250,15 @@ fn show_directory(args: &Args, dir: &Path) -> Result<(), Box<dyn Error>> {
     let mut files_new = Vec::new();
 
     for file in &files {
-        let first_char = file
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .chars()
-            .next()
-            .unwrap();
+        let mut chars = file.file_name().unwrap().to_str().unwrap().chars();
+        let first_char = chars.next().unwrap();
+        let last_char = chars.last().unwrap();
         if !(args.all || args.almost_all) && first_char == '.' {
             continue;
-        } else {
-            files_new.push(file.as_path());
+        } else if args.ignore_backups && last_char == '~' {
+            continue;
         }
+        files_new.push(file.as_path());
     }
 
     if args.all {
