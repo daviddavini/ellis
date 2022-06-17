@@ -25,6 +25,8 @@ struct Args {
     #[clap(short = 'G', long, value_parser)]
     no_group: bool,
     #[clap(short, long, value_parser)]
+    numeric_uid_gid: bool,
+    #[clap(short, long, value_parser)]
     inode: bool,
     #[clap(short, long, value_parser)]
     directory: bool,
@@ -36,35 +38,8 @@ struct Args {
     size: bool,
     #[clap(short = 'U', value_parser)]
     uu: bool,
+    long_listing: bool,
 }
-
-// struct Line {
-//     mode: Option<String>,
-//     nlink: Option<String>,
-//     user: Option<String>,
-//     group: Option<String>,
-//     size: Option<String>,
-//     cdate: Option<String>,
-//     mtime: Option<String>,
-//     name: Option<String>,
-// }
-
-// #[derive(Default)]
-// struct SectionLength {
-//     mode: usize,
-//     nlink: usize,
-//     user: usize,
-//     group: usize,
-//     size: usize,
-//     cdate: usize,
-//     mtime: usize,
-//     name: usize,
-// }
-
-// enum Align {
-//     LeftAlign,
-//     RightAlign,
-// }
 
 fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>> {
     if files_old.is_empty() {
@@ -97,8 +72,6 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
         let meta = file.metadata()?;
         let created: DateTime<Local> = meta.created()?.into();
         let modified: DateTime<Local> = meta.modified()?.into();
-        let user = users::get_user_by_uid(meta.uid()).unwrap();
-        let group = users::get_group_by_gid(meta.gid()).unwrap();
         // println!("{:?} {:?}", meta.blksize(), meta.blocks());
 
         let mut line = Vec::new();
@@ -114,21 +87,31 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
             line.push(blocks_adj.to_string());
         }
 
-        if args.l {
+        if args.long_listing {
             line.push(unix_mode::to_string(meta.permissions().mode()));
             line.push(meta.nlink().to_string());
             if !args.g {
-                line.push(user.name().to_str().unwrap().to_string());
+                if args.numeric_uid_gid {
+                    line.push(meta.uid().to_string());
+                } else {
+                    let user = users::get_user_by_uid(meta.uid()).unwrap();
+                    line.push(user.name().to_str().unwrap().to_string());
+                }
             }
             if !args.no_group {
-                line.push(group.name().to_str().unwrap().to_string())
+                if args.numeric_uid_gid {
+                    line.push(meta.gid().to_string());
+                } else {
+                    let group = users::get_group_by_gid(meta.gid()).unwrap();
+                    line.push(group.name().to_str().unwrap().to_string())
+                }
             }
             line.push(meta.size().to_string());
             line.push(created.format("%b %e").to_string());
             line.push(modified.format("%R").to_string());
         }
         let mut name = filename.to_str().unwrap().to_string();
-        if args.l {
+        if args.long_listing {
             if file.is_symlink() {
                 name += " -> ";
                 name += fs::read_link(file)?.to_str().unwrap();
@@ -167,7 +150,7 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
 
     // println!("{:?}", &.len());
 
-    if args.l {
+    if args.long_listing {
         for line in grid {
             for (part, spacing) in line.iter().zip(&spacings) {
                 print!("{:>width$} ", part, width = spacing);
@@ -218,7 +201,7 @@ fn show_directory(args: &Args, dir: &Path) -> Result<(), Box<dyn Error>> {
     }
 
     let total_blocks = 0;
-    if args.l {
+    if args.long_listing {
         println!("total {}", total_blocks);
     }
 
@@ -232,7 +215,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // OUTLINE
     // Process command line arguments
-    let args = Args::parse();
+    let mut args = Args::parse();
+
+    args.long_listing = args.l || args.numeric_uid_gid;
 
     if args.files.is_empty() {
         show_directory(&args, &env::current_dir()?)?;
