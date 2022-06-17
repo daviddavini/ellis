@@ -30,6 +30,8 @@ struct Args {
     directory: bool,
     #[clap(short, long, value_parser)]
     group_directories_first: bool,
+    #[clap(short, value_parser)]
+    reverse: bool,
     #[clap(short = 'U', value_parser)]
     uu: bool,
 }
@@ -70,15 +72,13 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
     let mut files = files_old.clone();
     // Sort the file data
     if !args.uu {
+        files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+        if args.reverse {
+            files.reverse();
+        }
+        // second ordering is "major" ordering
         if args.group_directories_first {
-            files.sort_by(|a, b| {
-                (a.is_dir()
-                    .cmp(&b.is_dir())
-                    .reverse()
-                    .then(a.file_name().cmp(&b.file_name())))
-            });
-        } else {
-            files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+            files.sort_by(|a, b| a.is_dir().cmp(&b.is_dir()).reverse());
         }
     }
 
@@ -242,6 +242,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
 
             dirs.sort();
+            if args.reverse {
+                dirs.reverse();
+            }
+
             if dirs.len() == 1 && other_files.len() == 0 {
                 show_directory(&args, &dirs[0])?;
             } else {
