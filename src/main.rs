@@ -21,6 +21,8 @@ struct Args {
     all: bool,
     #[clap(short = 'A', long, value_parser)]
     almost_all: bool,
+    #[clap(long, value_parser)]
+    author: bool,
     #[clap(short, value_parser)]
     l: bool,
     #[clap(short, value_parser)]
@@ -45,6 +47,7 @@ struct Args {
     long_listing: bool,
 }
 
+#[derive(Copy, Clone)]
 enum Align {
     Left,
     Right,
@@ -112,32 +115,47 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
             if i == 0 {
                 align.push(Align::Right);
             }
+            let user_string = if args.numeric_uid_gid {
+                meta.uid().to_string()
+            } else {
+                users::get_user_by_uid(meta.uid())
+                    .unwrap()
+                    .name()
+                    .to_str()
+                    .unwrap()
+                    .to_string()
+            };
+            let user_align = if args.numeric_uid_gid {
+                Align::Right
+            } else {
+                Align::Left
+            };
+            let group_string = if args.numeric_uid_gid {
+                meta.gid().to_string()
+            } else {
+                users::get_group_by_gid(meta.gid())
+                    .unwrap()
+                    .name()
+                    .to_str()
+                    .unwrap()
+                    .to_string()
+            };
             if !args.g {
-                if args.numeric_uid_gid {
-                    line.push(meta.uid().to_string());
-                    if i == 0 {
-                        align.push(Align::Right);
-                    }
-                } else {
-                    let user = users::get_user_by_uid(meta.uid()).unwrap();
-                    line.push(user.name().to_str().unwrap().to_string());
-                    if i == 0 {
-                        align.push(Align::Left);
-                    }
+                line.push(user_string.clone());
+                if i == 0 {
+                    align.push(user_align.clone());
                 }
             }
             if !args.no_group {
-                if args.numeric_uid_gid {
-                    line.push(meta.gid().to_string());
-                    if i == 0 {
-                        align.push(Align::Right);
-                    }
-                } else {
-                    let group = users::get_group_by_gid(meta.gid()).unwrap();
-                    line.push(group.name().to_str().unwrap().to_string());
-                    if i == 0 {
-                        align.push(Align::Left);
-                    }
+                line.push(group_string);
+                if i == 0 {
+                    align.push(user_align);
+                }
+            }
+            if args.author {
+                line.push(user_string);
+                if i == 0 {
+                    align.push(user_align);
                 }
             }
             line.push(meta.size().to_string());
