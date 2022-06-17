@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 use chrono::{offset::Local, DateTime};
 use clap::Parser;
+use itertools::izip;
 use unix_mode;
 use users;
 
@@ -41,6 +42,12 @@ struct Args {
     long_listing: bool,
 }
 
+enum Align {
+    Left,
+    Right,
+    None,
+}
+
 fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>> {
     if files_old.is_empty() {
         return Ok(());
@@ -63,10 +70,10 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
 
     let total_blocks = 0;
 
-    // let mut align = Vec::new();
+    let mut align = Vec::new();
 
     // Print the file data
-    for file in &files {
+    for (i, file) in files.iter().enumerate() {
         // let filename = file.as_os_str().to_str().unwrap().to_string();
         let filename = file.file_name().or(Some(file.as_os_str())).unwrap();
         let meta = file.metadata()?;
@@ -78,6 +85,9 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
 
         if args.inode {
             line.push(meta.ino().to_string());
+            if i == 0 {
+                align.push(Align::Right);
+            }
         }
 
         if args.size {
@@ -85,30 +95,60 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
             let blocks = if meta.is_symlink() { 0 } else { meta.blocks() };
             let blocks_adj = blocks / (meta.blksize() / 512);
             line.push(blocks_adj.to_string());
+            if i == 0 {
+                align.push(Align::Right);
+            }
         }
 
         if args.long_listing {
             line.push(unix_mode::to_string(meta.permissions().mode()));
+            if i == 0 {
+                align.push(Align::Left);
+            }
             line.push(meta.nlink().to_string());
+            if i == 0 {
+                align.push(Align::Right);
+            }
             if !args.g {
                 if args.numeric_uid_gid {
                     line.push(meta.uid().to_string());
+                    if i == 0 {
+                        align.push(Align::Right);
+                    }
                 } else {
                     let user = users::get_user_by_uid(meta.uid()).unwrap();
                     line.push(user.name().to_str().unwrap().to_string());
+                    if i == 0 {
+                        align.push(Align::Left);
+                    }
                 }
             }
             if !args.no_group {
                 if args.numeric_uid_gid {
                     line.push(meta.gid().to_string());
+                    if i == 0 {
+                        align.push(Align::Right);
+                    }
                 } else {
                     let group = users::get_group_by_gid(meta.gid()).unwrap();
-                    line.push(group.name().to_str().unwrap().to_string())
+                    line.push(group.name().to_str().unwrap().to_string());
+                    if i == 0 {
+                        align.push(Align::Left);
+                    }
                 }
             }
             line.push(meta.size().to_string());
+            if i == 0 {
+                align.push(Align::Right);
+            }
             line.push(created.format("%b %e").to_string());
+            if i == 0 {
+                align.push(Align::Left);
+            }
             line.push(modified.format("%R").to_string());
+            if i == 0 {
+                align.push(Align::Left);
+            }
         }
         let mut name = filename.to_str().unwrap().to_string();
         if args.long_listing {
@@ -118,6 +158,9 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
             }
         }
         line.push(name);
+        if i == 0 {
+            align.push(Align::None);
+        }
 
         grid.push(line);
 
@@ -148,12 +191,16 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
         );
     }
 
-    // println!("{:?}", &.len());
+    println!("{:?}", align.len());
 
     if args.long_listing {
         for line in grid {
-            for (part, spacing) in line.iter().zip(&spacings) {
-                print!("{:>width$} ", part, width = spacing);
+            for (part, spacing, align) in izip!(&line, &spacings, &align) {
+                match align {
+                    Align::Right => print!("{:>width$} ", part, width = spacing),
+                    Align::Left => print!("{:<width$} ", part, width = spacing),
+                    Align::None => print!("{} ", part),
+                }
             }
             print!("\n");
         }
