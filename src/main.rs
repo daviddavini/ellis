@@ -39,6 +39,7 @@ struct Args {
     size: bool,
     #[clap(short = 'U', value_parser)]
     uu: bool,
+    #[clap(skip)]
     long_listing: bool,
 }
 
@@ -191,7 +192,7 @@ fn show_files(args: &Args, files_old: &Vec<&Path>) -> Result<(), Box<dyn Error>>
         );
     }
 
-    println!("{:?}", align.len());
+    // println!("{:?}", align.len());
 
     if args.long_listing {
         for line in grid {
@@ -293,10 +294,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 show_directory(&args, &dirs[0])?;
             } else {
                 for (i, dir) in dirs.iter().enumerate() {
-                    println!(
-                        "{}:",
-                        dir.file_name().unwrap().to_str().unwrap().to_string()
-                    );
+                    let filename = dir.file_name().or(Some(dir.as_os_str())).unwrap();
+                    println!("{}:", filename.to_str().unwrap().to_string());
                     show_directory(&args, &dir)?;
 
                     if i != dirs.len() - 1 {
